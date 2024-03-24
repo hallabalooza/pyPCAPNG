@@ -1834,7 +1834,7 @@ if ( __name__ == '__main__' ):
 
     # ----------------------------------------------------------------------------------------------
     print("\n\033[1;38;2;0;128;255m" + "#"*128 + "\n# PCAPNG READ TEST (ENHANCED)\n" + "#"*128 + "\033[0m")
-    for vRoot, vDirs, vFiles in os.walk("./samples/pcapng-test-generator-master"):
+    for vRoot, vDirs, vFiles in os.walk("./test/pcapng-test-generator"):
         for vFile in vFiles:
             vFile = os.path.abspath(os.path.join(vRoot, vFile))
             if vFile.endswith(".pcapng"):
