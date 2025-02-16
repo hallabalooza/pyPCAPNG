@@ -1472,18 +1472,20 @@ class PCAPNGWriter(object):
                        - 'a' .. open for appending to an existing file
         @param  pBo    Optional string that specifies the endianness that shall be used for PCAPNG
                        block parameters.
-        @param  pAF    Automatically flush after each 'pAF'th added block.
+        @param  pAF    Automatically flush at each 'pAF'th added block.
         """
         if (not isinstance(pPcap, str)                   ): raise PCAPNGException("Parameter 'pPcap' is not of type 'str'.")
         if (not isinstance(pMode, str)                   ): raise PCAPNGException("Parameter 'pMode' is not of type 'str'.")
         if (pMode not in ["w", "a"]                      ): raise PCAPNGException("Parameter 'pMode' is not in range [w, a].")
         if (not isinstance(pBo, BLKByteOrderType)        ): raise PCAPNGException("Parameter 'pBo' is not of type 'BLKByteOrderType'.")
         if (not isinstance(pAF, tuple([int, type(None)]))): raise PCAPNGException("Parameter 'pAF' is not of type 'int' or 'None'.")
-        self._file = pPcap
-        self._pcap = open(pPcap, "{f_mode}b".format(f_mode=pMode))
-        self._bo   = pBo
-        self._blks = []
-        self._idbs = []
+        self._file  = pPcap
+        self._pcap  = open(pPcap, "{f_mode}b".format(f_mode=pMode))
+        self._bo    = pBo
+        self._blks  = []
+        self._idbs  = []
+        self._af    = pAF
+        self._afcnt = 0
 
     def __del__(self) -> None:
         if (    (hasattr(self, '_pcap'))
@@ -1493,11 +1495,12 @@ class PCAPNGWriter(object):
             self._pcap.close()
 
     def __autoflush(self):
+        self._afcnt += 1
         if (    (self._af is not None   )
             and (self._af == self._afcnt)
            ):
             self.flush()
-        self._afcnt += 1
+            self._afcnt = 0
 
     def flush(self) -> None:
         while self._blks:
