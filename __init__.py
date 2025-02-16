@@ -1463,7 +1463,7 @@ class PCAPNGWriter(object):
     @brief  Class for creating PCAPNG capture files
     """
 
-    def __init__(self, pPcap:str, pMode:str="w", pBo:BLKByteOrderType=BLKByteOrderType.NATIVE) -> None:
+    def __init__(self, pPcap:str, pMode:str="w", pBo:BLKByteOrderType=BLKByteOrderType.NATIVE, pAF:int=None) -> None:
         """
         @brief  Creates a PCAPNGWriter instance
         @param  pPcap  Name of the PCAPNG file that shall be used to store data.
@@ -1472,11 +1472,14 @@ class PCAPNGWriter(object):
                        - 'a' .. open for appending to an existing file
         @param  pBo    Optional string that specifies the endianness that shall be used for PCAPNG
                        block parameters.
+        @param  pAF    Automatically flush after each 'pAF'th added block.
         """
-        if (not isinstance(pPcap, str)           ): raise PCAPNGException("Parameter 'pPcap' is not of type 'str'.")
-        if (not isinstance(pMode, str)           ): raise PCAPNGException("Parameter 'pMode' is not of type 'str'.")
-        if (pMode not in ["w", "a"]              ): raise PCAPNGException("Parameter 'pMode' is not in range [w, a].")
-        if (not isinstance(pBo, BLKByteOrderType)): raise PCAPNGException("Parameter 'pBo' is not of type 'BLKByteOrderType'.")
+        if (not isinstance(pPcap, str)                   ): raise PCAPNGException("Parameter 'pPcap' is not of type 'str'.")
+        if (not isinstance(pMode, str)                   ): raise PCAPNGException("Parameter 'pMode' is not of type 'str'.")
+        if (pMode not in ["w", "a"]                      ): raise PCAPNGException("Parameter 'pMode' is not in range [w, a].")
+        if (not isinstance(pBo, BLKByteOrderType)        ): raise PCAPNGException("Parameter 'pBo' is not of type 'BLKByteOrderType'.")
+        if (not isinstance(pAF, tuple([int, type(None)]))): raise PCAPNGException("Parameter 'pAF' is not of type 'int' or 'None'.")
+        self._file = pPcap
         self._pcap = open(pPcap, "{f_mode}b".format(f_mode=pMode))
         self._bo   = pBo
         self._blks = []
@@ -1489,9 +1492,32 @@ class PCAPNGWriter(object):
             self.flush()
             self._pcap.close()
 
-    def flush(self):
+    def __autoflush(self):
+        if (    (self._af is not None   )
+            and (self._af == self._afcnt)
+           ):
+            self.flush()
+        self._afcnt += 1
+
+    def flush(self) -> None:
         while self._blks:
             self._pcap.write(self._blks.pop(0).rawData)
+        self._blks.clear()
+
+    def open(self) -> bool:
+        vResult = False
+        if (self._pcap is None):
+            self._pcap = open(pPcap, "{f_mode}b".format(f_mode=pMode))
+            vResult = True
+        return vResult
+
+    def close(self) -> None:
+        vResult = False
+        if (self._pcap is not None):
+            self.flush()
+            self._pcap.close()
+            vResult = True
+        return vResult
 
     def addSHB(self, pMajorVersion:int=None, pMinorVersion:int=None, pOptions:list=None) -> None:
         """
@@ -1513,8 +1539,9 @@ class PCAPNGWriter(object):
                    pSectionLength=int(0xFFFFFFFFFFFFFFFF),
                    pOptions=pOptions
                   )
-        self._blks.append(vBlk)
         self._idbs = []
+        self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addIDB(self, pLinkType:int=None, pSnapLen:int=None, pOptions:list=None) -> None:
@@ -1540,6 +1567,7 @@ class PCAPNGWriter(object):
                   )
         self._idbs.append(vBlk)
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addEPB(self, pPacketData:bytes, pInterfaceId:int=None, pTimestamp:int=None, pOriginalPacketLength:int=None, pCapturedPacketLength:int=None, pOptions:list=None) -> None:
@@ -1572,6 +1600,7 @@ class PCAPNGWriter(object):
                    pOptions              = pOptions
                   )
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addSPB(self, pPacketData:bytes, pOriginalPacketLength:int=None) -> None:
@@ -1590,6 +1619,7 @@ class PCAPNGWriter(object):
                    pPacketData           = pPacketData
                   )
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addNRB(self, pRecords:list=None, pOptions:list=None) -> None:
@@ -1608,6 +1638,7 @@ class PCAPNGWriter(object):
                    pOptions        = pOptions
                   )
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addISB(self, pInterfaceId:int=None, pTimestamp:int=None, pOptions:list=None) -> None:
@@ -1628,6 +1659,7 @@ class PCAPNGWriter(object):
                    pOptions        = pOptions
                   )
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addDSB(self, pSecretsData:bytes, pSecretsType:int=None, pSecretsLength:int=None, pOptions:list=None) -> None:
@@ -1652,6 +1684,7 @@ class PCAPNGWriter(object):
                    pOptions        = pOptions
                   )
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addCB0(self, pPacketData:bytes, pPrivateEnterpriseNumber:int=None, pOptions:list=None) -> None:
@@ -1672,6 +1705,7 @@ class PCAPNGWriter(object):
                    pOptions                 = pOptions
                   )
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def addCB1(self, pPacketData:bytes, pPrivateEnterpriseNumber:int=int(1), pOptions:list=None) -> None:
@@ -1692,6 +1726,7 @@ class PCAPNGWriter(object):
                    pOptions                 = pOptions
                   )
         self._blks.append(vBlk)
+        self.__autoflush()
         return vBlk
 
     def getInterfaceId(self, pIDB):
@@ -1701,6 +1736,10 @@ class PCAPNGWriter(object):
         """
         if (not isinstance(pIDB, IDB)): raise PCAPNGException("Parameter 'pIDB' is not of type 'IDB'")
         return self._idbs.index(pIDB)
+
+    @property
+    def file(self):
+        return self._file
 
 
 class PCAPNGReader(object):
